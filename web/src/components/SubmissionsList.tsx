@@ -1,36 +1,50 @@
 "use client";
 
 import { useReadContract } from "wagmi";
-import aiJudgeAbi from "@/abi/AIJudge";
+import aiJudgeAbi from "@/abi/AIJudgeCommitReveal";
 import { contractAddress } from "@/config/contract";
 import { ritualChain } from "@/config/wagmi";
 import { shortenAddress } from "@/lib/format";
 import type { JudgeResult } from "@/lib/aiReview";
 import { Card, CardHeader, CardBody, Badge } from "@/components/ui";
+import type { BountyStatus } from "@/lib/bounty";
 
 export function SubmissionsList({
   bountyId,
   count,
+  status,
   judge,
   finalWinner,
 }: {
   bountyId: bigint;
   count: number;
+  status: BountyStatus;
   judge?: JudgeResult | null;
   finalWinner?: number;
 }) {
   const indices = Array.from({ length: count }, (_, i) => i);
 
+  const subtitle =
+    status === "committing"
+      ? "Answers are hidden during the commit phase — only hashes are stored."
+      : status === "revealing"
+      ? "Participants are revealing their answers now."
+      : "All revealed answers, judged together after the reveal deadline.";
+
   return (
     <Card>
       <CardHeader
-        title="Submissions"
-        subtitle="All submissions are judged together after the deadline."
+        title="Revealed submissions"
+        subtitle={subtitle}
         action={<Badge tone="zinc">{count}</Badge>}
       />
       <CardBody className="space-y-3">
         {count === 0 ? (
-          <p className="text-sm text-zinc-500">No submissions yet.</p>
+          <p className="text-sm text-zinc-500">
+            {status === "committing"
+              ? "No commitments yet — answers are hidden until the reveal phase."
+              : "No revealed answers yet."}
+          </p>
         ) : (
           indices.map((i) => (
             <SubmissionRow
@@ -71,7 +85,7 @@ function SubmissionRow({
   });
 
   const submitter = data?.[0];
-  const answer = data?.[1];
+  const answer    = data?.[1];
 
   return (
     <div
@@ -79,8 +93,8 @@ function SubmissionRow({
         isWinner
           ? "border-emerald-500/40 bg-emerald-500/5"
           : recommended
-            ? "border-indigo-500/40 bg-indigo-500/5"
-            : "border-white/10 bg-black/20"
+          ? "border-indigo-500/40 bg-indigo-500/5"
+          : "border-white/10 bg-black/20"
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

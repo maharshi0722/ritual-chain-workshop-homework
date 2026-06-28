@@ -15,9 +15,9 @@ export function BountyDetail({
   bounty: Bounty;
   isOwner: boolean;
 }) {
-  const now = useNow();
+  const now    = useNow();
   const status = getBountyStatus(bounty, now / 1000);
-  const meta = STATUS_META[status];
+  const meta   = STATUS_META[status];
 
   return (
     <Card>
@@ -45,16 +45,27 @@ export function BountyDetail({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-          <Stat label="Reward" value={formatReward(bounty.reward)} />
-          <Stat label="Submissions" value={bounty.submissionCount.toString()} />
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label="Reward"           value={formatReward(bounty.reward)} />
+          <Stat label="Revealed answers" value={bounty.revealedCount.toString()} />
           <Stat
-            label="Deadline"
+            label="Commit deadline"
             value={
               <span>
-                {formatTimestamp(bounty.deadline)}
+                {formatTimestamp(bounty.submissionDeadline)}
                 <span className="ml-1 text-xs text-zinc-500">
-                  ({formatRelative(bounty.deadline)})
+                  ({formatRelative(bounty.submissionDeadline)})
+                </span>
+              </span>
+            }
+          />
+          <Stat
+            label="Reveal deadline"
+            value={
+              <span>
+                {formatTimestamp(bounty.revealDeadline)}
+                <span className="ml-1 text-xs text-zinc-500">
+                  ({formatRelative(bounty.revealDeadline)})
                 </span>
               </span>
             }
@@ -62,9 +73,25 @@ export function BountyDetail({
           <Stat label="Owner" value={shortenAddress(bounty.owner)} />
         </div>
 
+        {/* Phase explanation strip */}
+        <div className="rounded-xl bg-white/5 px-3 py-2 text-xs text-zinc-400 space-y-1">
+          <p>
+            <span className="text-zinc-300 font-medium">Phase 1 – Commit: </span>
+            submit a hidden hash before the commit deadline.
+          </p>
+          <p>
+            <span className="text-zinc-300 font-medium">Phase 2 – Reveal: </span>
+            publish your real answer before the reveal deadline.
+          </p>
+          <p>
+            <span className="text-zinc-300 font-medium">Phase 3 – Judge: </span>
+            after the reveal deadline, Ritual AI evaluates all revealed answers together.
+          </p>
+        </div>
+
         {bounty.finalized && (
           <div className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 ring-1 ring-inset ring-emerald-500/30">
-            Finalized, winner is submission{" "}
+            Finalized — winner is submission{" "}
             <span className="font-mono font-semibold">#{bounty.winnerIndex.toString()}</span>.
           </div>
         )}

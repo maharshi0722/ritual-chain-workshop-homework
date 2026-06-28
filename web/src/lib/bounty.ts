@@ -1,17 +1,20 @@
 import type { Address } from "viem";
 
-/** Parsed shape of the `getBounty` tuple return value. */
+// ─── Commit-Reveal Bounty type ─────────────────────────────────────────────
+
+/** Parsed shape of the `getBounty` tuple return from AIJudgeCommitReveal. */
 export type Bounty = {
-  owner: Address;
-  title: string;
-  rubric: string;
-  reward: bigint;
-  deadline: bigint;
-  judged: boolean;
-  finalized: boolean;
-  submissionCount: bigint;
-  winnerIndex: bigint;
-  aiReview: `0x${string}`;
+  owner:              Address;
+  title:              string;
+  rubric:             string;
+  reward:             bigint;
+  submissionDeadline: bigint;   // Was `deadline` in original contract
+  revealDeadline:     bigint;   // New: reveal phase deadline
+  judged:             boolean;
+  finalized:          boolean;
+  revealedCount:      bigint;   // Was `submissionCount` (now only counts revealed)
+  winnerIndex:        bigint;
+  aiReview:           `0x${string}`;
 };
 
 /** getBounty returns a positional tuple — map it to a named object. */
@@ -20,6 +23,7 @@ export function parseBounty(
     Address,
     string,
     string,
+    bigint,
     bigint,
     bigint,
     boolean,
@@ -34,10 +38,11 @@ export function parseBounty(
     title,
     rubric,
     reward,
-    deadline,
+    submissionDeadline,
+    revealDeadline,
     judged,
     finalized,
-    submissionCount,
+    revealedCount,
     winnerIndex,
     aiReview,
   ] = raw;
@@ -46,35 +51,69 @@ export function parseBounty(
     title,
     rubric,
     reward,
-    deadline,
+    submissionDeadline,
+    revealDeadline,
     judged,
     finalized,
-    submissionCount,
+    revealedCount,
     winnerIndex,
     aiReview,
   };
 }
 
-export type BountyStatus = "open" | "ready" | "judged" | "finalized";
+// ─── Status ────────────────────────────────────────────────────────────────
+
+/**
+ * Bounty status covers the new three-phase lifecycle:
+ *   committing → revealing → judging_ready → judged → finalized
+ */
+export type BountyStatus =
+  | "committing"      // Before submissionDeadline — participants submit hashes
+  | "revealing"       // After submissionDeadline, before revealDeadline — reveal phase
+  | "judging_ready"   // After revealDeadline, not yet judged
+  | "judged"
+  | "finalized";
 
 export function getBountyStatus(b: Bounty, nowSeconds = Date.now() / 1000): BountyStatus {
   if (b.finalized) return "finalized";
-  if (b.judged) return "judged";
-  const deadlinePassed = Number(b.deadline) <= nowSeconds;
-  return deadlinePassed ? "ready" : "open";
+  if (b.judged)    return "judged";
+  const sub = Number(b.submissionDeadline);
+  const rev = Number(b.revealDeadline);
+  if (nowSeconds < sub) return "committing";
+  if (nowSeconds < rev) return "revealing";
+  return "judging_ready";
 }
 
 export const STATUS_META: Record<
   BountyStatus,
-  { label: string; tone: "green" | "amber" | "indigo" | "zinc" }
+  { label: string; tone: "green" | "amber" | "indigo" | "zinc" | "sky" }
 > = {
-  open: { label: "Open", tone: "green" },
-  ready: { label: "Ready for judging", tone: "amber" },
-  judged: { label: "Judged", tone: "indigo" },
-  finalized: { label: "Finalized", tone: "zinc" },
+  committing:    { label: "Commit phase open",  tone: "green"  },
+  revealing:     { label: "Reveal phase open",  tone: "sky"    },
+  judging_ready: { label: "Ready for judging",  tone: "amber"  },
+  judged:        { label: "Judged",             tone: "indigo" },
+  finalized:     { label: "Finalized",          tone: "zinc"   },
 };
 
-/** Can a participant still submit an answer? */
-export function canSubmit(b: Bounty, nowSeconds = Date.now() / 1000): boolean {
-  return !b.judged && !b.finalized && Number(b.deadline) > nowSeconds;
+/** Can a participant still submit a commitment? */
+export function canCommit(b: Bounty, nowSeconds = Date.now() / 1000): boolean {
+  return !b.judged && !b.finalized && nowSeconds < Number(b.submissionDeadline);
 }
+
+/** Can a participant reveal their answer right now? */
+export function canReveal(b: Bounty, nowSeconds = Date.now() / 1000): boolean {
+  return (
+    !b.judged &&
+    !b.finalized &&
+    nowSeconds >= Number(b.submissionDeadline) &&
+    nowSeconds < Number(b.revealDeadline)
+  );
+}
+
+/** Is the bounty ready for the owner to call judgeAll? */
+export function canJudge(b: Bounty, nowSeconds = Date.now() / 1000): boolean {
+  return !b.judged && !b.finalized && nowSeconds >= Number(b.revealDeadline);
+}
+
+// Keep backwards-compatible export so older references don't break during migration.
+export const canSubmit = canCommit;

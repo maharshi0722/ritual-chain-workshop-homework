@@ -1,7 +1,7 @@
 "use client";
 
 import { useReadContract } from "wagmi";
-import aiJudgeAbi from "@/abi/AIJudge";
+import aiJudgeAbi from "@/abi/AIJudgeCommitReveal";
 import { contractAddress, isContractConfigured } from "@/config/contract";
 import { ritualChain } from "@/config/wagmi";
 import { parseBounty, type Bounty } from "@/lib/bounty";
